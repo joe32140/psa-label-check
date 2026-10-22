@@ -48,6 +48,7 @@ python skills/psa-label-alignment/scripts/psa_label_check.py \
 - At x ≈ 300, line 2 ("KANAZAWA'S PIKACHU") is shifted about −15 px, while line 3 ("P.M. CNTR.KANAZAWA OPEN.") directly below it is shifted about +19 px. One smooth camera or lens distortion cannot do this, so the description lines were typeset differently from PSA's label.
 - The QR code on the back decodes to `https://www.psacard.com/cert/134699919/`. That is expected even for a fake, because counterfeiters copy real QR codes.
 - Secondary check: the card's position relative to the label differs from PSA's image by roughly 2 mm, on both the front and the back.
+- Against SNKRDUNK references instead of PSA's image (3 authenticated PSA 10 photos in [`../snkrdunk_refs/kanazawa-pikachu-psa10/`](../snkrdunk_refs/kanazawa-pikachu-psa10/), `--description-only`), the result is also **`MISMATCH`**: 22.06–22.84 px, matching none of the 3.
 - **Conclusion:** this is very likely a counterfeit slab that reuses a real cert number.
 
 **中文**
@@ -56,4 +57,5 @@ python skills/psa-label-alignment/scripts/psa_label_check.py \
 - 在水平位置約 300 的地方，第 2 行往左偏約 15px，正下方的第 3 行卻往右偏約 19px。相機或鏡頭的整體變形做不出這種效果，代表說明文字的排版跟 PSA 原廠不同。
 - 背面的 QR code 解得出來，也連到正確的證書頁。但這不能證明是真的，假卡殼通常直接複製真的 QR code。
 - 輔助檢查：卡片在殼裡相對標籤的位置，跟 PSA 官方圖比偏了大約 2mm，正反兩面都一樣。
+- 改用 SNKRDUNK 參考圖（[`../snkrdunk_refs/kanazawa-pikachu-psa10/`](../snkrdunk_refs/kanazawa-pikachu-psa10/) 裡 3 張已鑑定的 PSA10，加 `--description-only`）結果也是**不符**：22.06–22.84px，3 張都不一致。
 - **結論：** 很可能是套用真編號的假卡殼。

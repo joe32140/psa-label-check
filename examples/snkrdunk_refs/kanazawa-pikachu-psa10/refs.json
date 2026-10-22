@@ -1,0 +1,37 @@
+{
+  "apparel_id": 120250,
+  "card": "カナザワのピカチュウ: プロモ (マークあり) [S-P 144](プロモーションカード「S-P」)",
+  "retrieved": "2026-10-22",
+  "refs": [
+    {
+      "file": "ref_51546269.jpg",
+      "listing_id": 51546269,
+      "grade": "PSA10",
+      "status": 13,
+      "status_text": "到着待ち",
+      "authenticated_by_snkrdunk": true,
+      "listing_url": "https://snkrdunk.com/apparels/120250/used/51546269",
+      "image_url": "https://cdn.snkrdunk.com/apparel_used_listings/c6b0d6cc-dae2-4f2f-9100-acfbf0f92088/4872953.jpeg"
+    },
+    {
+      "file": "ref_51571009.jpg",
+      "listing_id": 51571009,
+      "grade": "PSA10",
+      "status": 11,
+      "status_text": "運営の発送待ち",
+      "authenticated_by_snkrdunk": true,
+      "listing_url": "https://snkrdunk.com/apparels/120250/used/51571009",
+      "image_url": "https://cdn.snkrdunk.com/apparel_used_listings/59a53e04-6a61-4f9a-baef-071e8cb4cac7/6845706.jpeg"
+    },
+    {
+      "file": "ref_51582299.jpg",
+      "listing_id": 51582299,
+      "grade": "PSA10",
+      "status": 13,
+      "status_text": "到着待ち",
+      "authenticated_by_snkrdunk": true,
+      "listing_url": "https://snkrdunk.com/apparels/120250/used/51582299",
+      "image_url": "https://cdn.snkrdunk.com/apparel_used_listings/0983f3e0-452c-4a73-97f2-a47517eac66f/7572187.jpeg"
+    }
+  ]
+}

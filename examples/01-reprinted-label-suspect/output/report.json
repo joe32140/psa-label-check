@@ -2,13 +2,7 @@
   "verdict": "MISMATCH",
   "message": "Adjacent text lines shift in different directions at the same position. The label text was typeset differently from PSA's original - consistent with a reprinted/counterfeit label.",
   "max_adjacent_line_disagreement_px": 30.75,
-  "thresholds": {
-    "consistent_max_px": 4.0,
-    "mismatch_min_px": 8.0,
-    "note": "provisional, calibrated on 2 examples"
-  },
   "glyphs_matched": 91,
-  "ignore_cert_line": false,
   "median_match_correlation": 0.884,
   "lines": [
     {
@@ -70,7 +64,6 @@
       "p90_abs_diff_px": 17.0
     }
   ],
-  "label_test_label_px_width": 492.0,
   "frame_corners": {
     "ref": [
       [
@@ -109,6 +102,16 @@
       ]
     ]
   },
+  "ref": "examples/01-reprinted-label-suspect/psa_front.png",
+  "out": "examples/01-reprinted-label-suspect/output",
+  "thresholds": {
+    "consistent_max_px": 4.0,
+    "mismatch_min_px": 8.0,
+    "note": "provisional, calibrated on a handful of examples"
+  },
+  "ignore_cert_line": false,
+  "description_only": false,
+  "label_test_label_px_width": 492.0,
   "qr": {
     "decoded": "https://www.psacard.com/cert/134699919/",
     "matches_cert": true,

@@ -1,14 +1,8 @@
 {
   "verdict": "CONSISTENT",
   "message": "All text lines shift together; the label text layout matches PSA's image of this cert.",
-  "max_adjacent_line_disagreement_px": 0.27,
-  "thresholds": {
-    "consistent_max_px": 4.0,
-    "mismatch_min_px": 8.0,
-    "note": "provisional, calibrated on 2 examples"
-  },
+  "max_adjacent_line_disagreement_px": 0.34,
   "glyphs_matched": 71,
-  "ignore_cert_line": false,
   "median_match_correlation": 0.944,
   "lines": [
     {
@@ -50,27 +44,26 @@
         1,
         2
       ],
-      "max_abs_diff_px": 0.27,
-      "p90_abs_diff_px": 0.09
+      "max_abs_diff_px": 0.34,
+      "p90_abs_diff_px": 0.1
     },
     {
       "lines": [
         2,
         3
       ],
-      "max_abs_diff_px": 0.27,
-      "p90_abs_diff_px": 0.15
+      "max_abs_diff_px": 0.16,
+      "p90_abs_diff_px": 0.14
     },
     {
       "lines": [
         3,
         4
       ],
-      "max_abs_diff_px": 0.1,
-      "p90_abs_diff_px": 0.07
+      "max_abs_diff_px": 0.08,
+      "p90_abs_diff_px": 0.06
     }
   ],
-  "label_test_label_px_width": 407.1,
   "frame_corners": {
     "ref": [
       [
@@ -109,6 +102,16 @@
       ]
     ]
   },
+  "ref": "examples/02-genuine-control/psa_front.png",
+  "out": "examples/02-genuine-control/output",
+  "thresholds": {
+    "consistent_max_px": 4.0,
+    "mismatch_min_px": 8.0,
+    "note": "provisional, calibrated on a handful of examples"
+  },
+  "ignore_cert_line": false,
+  "description_only": false,
+  "label_test_label_px_width": 407.1,
   "qr": {
     "decoded": null,
     "matches_cert": false,

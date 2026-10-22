@@ -57,6 +57,17 @@ def order_quad(pts):
                        pts[np.argmax(s)], pts[np.argmax(d)]])
 
 
+def _looks_like_label(img, q):
+    """A PSA label frame encloses a bright, nearly white card. Reject red-ish
+    backgrounds (wood tables, playmats) that only happen to be the right shape."""
+    M = cv2.getPerspectiveTransform(
+        np.float32(q), np.float32([[0, 0], [CANON_W, 0], [CANON_W, CANON_H], [0, CANON_H]]))
+    lab = cv2.warpPerspective(img, M, (CANON_W, CANON_H))
+    hsv = cv2.cvtColor(lab[45:250, 45:915], cv2.COLOR_BGR2HSV)
+    whitish = (hsv[..., 1] < 80) & (hsv[..., 2] > 120)
+    return float(whitish.mean()) > 0.35
+
+
 def detect_label_frame(img):
     """Find the red outer frame of a standard PSA label. Returns 4 corners."""
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -67,7 +78,7 @@ def detect_label_frame(img):
              (hsv[..., 1] > s_min) & (hsv[..., 2] > v_min)).astype(np.uint8) * 255
         m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
         cnts, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for c in sorted(cnts, key=cv2.contourArea, reverse=True)[:3]:
+        for c in sorted(cnts, key=cv2.contourArea, reverse=True)[:6]:
             if cv2.contourArea(c) < 0.005 * h_img * w_img:
                 continue
             hull = cv2.convexHull(c)
@@ -90,7 +101,8 @@ def detect_label_frame(img):
             aspect = wd / ht
             area = cv2.contourArea(q)
             fill = cv2.contourArea(c) / max(area, 1)
-            if 2.2 <= aspect <= 8.0 and fill > 0.15 and (best is None or area > best[0]):
+            if (2.2 <= aspect <= 8.0 and fill > 0.15 and (best is None or area > best[0])
+                    and _looks_like_label(img, q)):
                 best = (area, q)
         if best is not None:
             break
@@ -183,15 +195,31 @@ def _median3(v):
     out = v.copy()
     for i in range(1, len(v) - 1):
         out[i] = np.median(v[i - 1:i + 2])
+    # line ends too: a lone glyph matched to an identical neighbour letter
+    # ("EEVEE") must not decide the verdict; a re-typeset shifts whole runs
+    out[0], out[-1] = np.median(v[:3]), np.median(v[-3:])
     return out
 
 
-def analyse(pts, ignore_cert_line=False):
+def _left_block(line, gap=70, min_x=300):
+    """Glyphs of the left description block: cut the line at the first wide
+    gap right of min_x. The right column (card number, grade, cert) starts there."""
+    for i in range(1, len(line)):
+        if line[i - 1]["x"] > min_x and line[i]["x"] - line[i - 1]["x"] > gap:
+            return line[:i]
+    return line
+
+
+def analyse(pts, ignore_cert_line=False, description_only=False):
     good = [p for p in pts if p["corr"] >= 0.5]
     lines = group_lines(good)
-    if ignore_cert_line:
+    if ignore_cert_line or description_only:
         # bottom row holds the cert number, which differs between certs
         lines = [l for l in lines if np.mean([p["y"] for p in l]) < 205]
+    if description_only:
+        # right column holds the grade ("GEM MT 10" / "MINT 9"), which differs between grades
+        lines = [l for l in (_left_block(l) for l in lines) if len(l) >= 3]
+    if ignore_cert_line or description_only:
         good = [p for l in lines for p in l]
     line_stats = []
     for i, l in enumerate(lines):
@@ -277,34 +305,12 @@ def save_figures(out, ref_lab, test_lab, lines, title):
 
 
 # -------------------------------------------------------------------- main
-def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--ref", required=True, help="PSA official cert image (front)")
-    ap.add_argument("--test", required=True, help="seller/listing photo of the slab (front)")
-    ap.add_argument("--out", required=True, help="output directory")
-    ap.add_argument("--ref-corners", help="manual label-frame corners for --ref 'x,y;x,y;x,y;x,y'")
-    ap.add_argument("--test-corners", help="manual label-frame corners for --test")
-    ap.add_argument("--test-back", help="optional seller photo of the slab back (QR check)")
-    ap.add_argument("--cert", help="expected cert number (checked against the QR code)")
-    ap.add_argument("--ignore-cert-line", action="store_true",
-                    help="reference is a DIFFERENT cert of the same card (identical label text): "
-                         "compare only the description lines, skip the cert-number row")
-    a = ap.parse_args(argv)
-    os.makedirs(a.out, exist_ok=True)
-
-    ref, test = cv2.imread(a.ref), cv2.imread(a.test)
-    if ref is None or test is None:
-        print("error: cannot read input image(s)", file=sys.stderr)
-        return 3
-    try:
-        rc = parse_corners(a.ref_corners) if a.ref_corners else detect_label_frame(ref)
-        tc = parse_corners(a.test_corners) if a.test_corners else detect_label_frame(test)
-    except Exception as e:  # noqa: BLE001
-        print(f"error: {e}", file=sys.stderr)
-        return 3
+def compare(ref, rc, test, tc, out, ignore_cert_line=False, description_only=False):
+    """Compare one reference label with the test label; write figures to out/."""
+    os.makedirs(out, exist_ok=True)
     ref_lab, test_lab = rectify(ref, rc), rectify(test, tc)
-    cv2.imwrite(os.path.join(a.out, "label_ref.png"), ref_lab)
-    cv2.imwrite(os.path.join(a.out, "label_test.png"), test_lab)
+    cv2.imwrite(os.path.join(out, "label_ref.png"), ref_lab)
+    cv2.imwrite(os.path.join(out, "label_test.png"), test_lab)
 
     # Pass 1 on the frame-rectified labels, then refine: fit ONE global
     # homography from all glyph matches (absorbs frame-corner and perspective
@@ -318,25 +324,121 @@ def main(argv=None):
         Hr, _ = cv2.findHomography(src, dst, cv2.RANSAC, 6.0)
         if Hr is not None:
             test_lab = cv2.warpPerspective(test_lab, Hr, (CANON_W, CANON_H), flags=cv2.INTER_CUBIC)
-            cv2.imwrite(os.path.join(a.out, "label_test.png"), test_lab)
+            cv2.imwrite(os.path.join(out, "label_test.png"), test_lab)
             pts = glyph_displacements(ref_lab, test_lab)
-    good, lines, line_stats, pairs = analyse(pts, a.ignore_cert_line)
+    good, lines, line_stats, pairs = analyse(pts, ignore_cert_line, description_only)
     v, corr_med, worst, msg = verdict(pts, good, pairs)
-
-    report = {
+    save_figures(out, ref_lab, test_lab, lines,
+                 f"{v}: max adjacent-line disagreement = {worst if worst is not None else 'n/a'} px")
+    return {
         "verdict": v,
         "message": msg,
         "max_adjacent_line_disagreement_px": worst,
-        "thresholds": {"consistent_max_px": CONSISTENT_MAX, "mismatch_min_px": MISMATCH_MIN,
-                       "note": "provisional, calibrated on 2 examples"},
         "glyphs_matched": len(good),
-        "ignore_cert_line": a.ignore_cert_line,
         "median_match_correlation": round(corr_med, 3),
         "lines": line_stats,
         "adjacent_line_pairs": pairs,
-        "label_test_label_px_width": round(float(np.linalg.norm(tc[1] - tc[0])), 1),
         "frame_corners": {"ref": np.round(rc, 1).tolist(), "test": np.round(tc, 1).tolist()},
     }
+
+
+def combine(results):
+    """Vote across several genuine references.
+
+    PSA has re-typeset the same card's label between printing eras, so a
+    genuine slab can legitimately mismatch a reference from another era. The
+    test label therefore counts as CONSISTENT when it matches any usable
+    reference, and as MISMATCH only when it matches none of them.
+    """
+    usable = [r for r in results if r["verdict"] in ("CONSISTENT", "MISMATCH")]
+    cons = [r for r in usable if r["verdict"] == "CONSISTENT"]
+    mism = [r for r in usable if r["verdict"] == "MISMATCH"]
+    if cons:
+        best = min(cons, key=lambda r: r["max_adjacent_line_disagreement_px"])
+        msg = (f"Text layout matches {len(cons)} of {len(results)} genuine reference label(s). "
+               + (f"{len(mism)} reference(s) differ, which is normal when PSA re-typeset this "
+                  "card's label between printing eras." if mism else ""))
+        return "CONSISTENT", best, msg.strip()
+    if len(mism) >= 2 or (mism and len(results) == 1):
+        best = min(mism, key=lambda r: r["max_adjacent_line_disagreement_px"])
+        return "MISMATCH", best, (
+            f"Text layout matches none of the {len(mism)} usable genuine reference label(s): "
+            "consistent with a reprinted/counterfeit label. Check that the references come from a "
+            "similar cert-number range, since PSA re-typesets labels between eras.")
+    return "INCONCLUSIVE", (mism or results)[0], (
+        "Too few usable references. Add more reference photos (ideally from a similar cert-number "
+        "range), or use a sharper, more frontal photo.")
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--ref", required=True, nargs="+",
+                    help="reference image(s) of a genuine label: PSA's cert image, or photos of "
+                         "genuine slabs of the same card (e.g. from snkrdunk_refs.py)")
+    ap.add_argument("--test", required=True, help="seller/listing photo of the slab (front)")
+    ap.add_argument("--out", required=True, help="output directory")
+    ap.add_argument("--ref-corners", help="manual label-frame corners for --ref 'x,y;x,y;x,y;x,y' "
+                                          "(single --ref only)")
+    ap.add_argument("--test-corners", help="manual label-frame corners for --test")
+    ap.add_argument("--test-back", help="optional seller photo of the slab back (QR check)")
+    ap.add_argument("--cert", help="expected cert number (checked against the QR code)")
+    ap.add_argument("--ignore-cert-line", action="store_true",
+                    help="reference is a DIFFERENT cert of the same card (identical label text): "
+                         "compare only the description lines, skip the cert-number row")
+    ap.add_argument("--description-only", action="store_true",
+                    help="compare only the left description block; skip the right column (card "
+                         "number, grade, cert). Use for references of a different cert or grade")
+    a = ap.parse_args(argv)
+    os.makedirs(a.out, exist_ok=True)
+    if a.ref_corners and len(a.ref) > 1:
+        print("error: --ref-corners needs a single --ref", file=sys.stderr)
+        return 3
+
+    test = cv2.imread(a.test)
+    if test is None:
+        print("error: cannot read --test image", file=sys.stderr)
+        return 3
+    try:
+        tc = parse_corners(a.test_corners) if a.test_corners else detect_label_frame(test)
+    except Exception as e:  # noqa: BLE001
+        print(f"error: test image: {e}", file=sys.stderr)
+        return 3
+
+    results = []
+    for i, path in enumerate(a.ref):
+        out = a.out if len(a.ref) == 1 else os.path.join(a.out, f"ref_{i + 1}")
+        ref = cv2.imread(path)
+        try:
+            if ref is None:
+                raise ValueError("cannot read image")
+            rc = parse_corners(a.ref_corners) if a.ref_corners else detect_label_frame(ref)
+            r = compare(ref, rc, test, tc, out, a.ignore_cert_line, a.description_only)
+        except Exception as e:  # noqa: BLE001
+            if len(a.ref) == 1:
+                print(f"error: {e}", file=sys.stderr)
+                return 3
+            r = {"verdict": "ERROR", "message": str(e), "max_adjacent_line_disagreement_px": None}
+        r["ref"] = path
+        r["out"] = out
+        results.append(r)
+
+    if len(results) == 1:
+        report = dict(results[0])
+        v, msg = report["verdict"], report["message"]
+    else:
+        v, best, msg = combine(results)
+        report = {k: best.get(k) for k in ("max_adjacent_line_disagreement_px", "glyphs_matched",
+                                           "median_match_correlation", "ref", "out")}
+        report = {"verdict": v, "message": msg, **report,
+                  "per_reference": [{k: r.get(k) for k in ("ref", "out", "verdict",
+                                                           "max_adjacent_line_disagreement_px",
+                                                           "glyphs_matched", "median_match_correlation")}
+                                    for r in results]}
+    report["thresholds"] = {"consistent_max_px": CONSISTENT_MAX, "mismatch_min_px": MISMATCH_MIN,
+                            "note": "provisional, calibrated on a handful of examples"}
+    report["ignore_cert_line"] = a.ignore_cert_line
+    report["description_only"] = a.description_only
+    report["label_test_label_px_width"] = round(float(np.linalg.norm(tc[1] - tc[0])), 1)
     if a.test_back:
         back = cv2.imread(a.test_back)
         qr = decode_qr(back) if back is not None else None
@@ -345,12 +447,10 @@ def main(argv=None):
             report["qr"]["matches_cert"] = bool(qr and a.cert in qr)
         report["qr"]["note"] = "A valid QR only proves the cert exists; counterfeit slabs copy real QR codes."
 
-    save_figures(a.out, ref_lab, test_lab, lines,
-                 f"{v}: max adjacent-line disagreement = {worst if worst is not None else 'n/a'} px")
     with open(os.path.join(a.out, "report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
-    print(json.dumps({k: report[k] for k in ("verdict", "max_adjacent_line_disagreement_px",
-                                              "glyphs_matched", "median_match_correlation")}))
+    print(json.dumps({k: report.get(k) for k in ("verdict", "max_adjacent_line_disagreement_px",
+                                                  "glyphs_matched", "median_match_correlation")}))
     print(msg)
     return {"CONSISTENT": 0, "MISMATCH": 1}.get(v, 2)
 
